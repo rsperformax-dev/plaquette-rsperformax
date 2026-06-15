@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>RS Performax — Générateur de Devis</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -225,11 +225,26 @@ function updateFormule() {
     '360° Premium (5h) + opérateur':       ['Galerie HD'],
     'Miroir Classic (3h) + opérateur':     [],
     'Miroir Premium (5h) + opérateur':     ['Impression illimitée', 'Galerie HD'],
-    'Pack Duo 360° + Miroir (6h)':         ['Impression illimitée', 'Galerie HD'],
+    'Pack Duo 360° + Miroir (6h)':         ['Impression illimitée', 'Galerie HD', '2e opérateur'],
     'Entreprise Cocktail (3h) + opérateur':['Branding personnalisé'],
     'Entreprise Soirée (5h) + opérateur':  ['Branding personnalisé'],
     '360° Self-service (24h)':             []
   };
+
+  // Auto-remplir la durée dans le formulaire
+  var dureeMap = {
+    'Pack Duo 360° + Miroir (6h)':'6h',
+    '360° Starter (3h) + opérateur':'3h',
+    '360° Premium (5h) + opérateur':'5h',
+    'Miroir Classic (3h) + opérateur':'3h',
+    'Miroir Premium (5h) + opérateur':'5h',
+    'Entreprise Cocktail (3h) + opérateur':'3h',
+    'Entreprise Soirée (5h) + opérateur':'5h',
+    '360° Self-service (24h)':'24h'
+  };
+  var dureeField = document.getElementById('p-duree');
+  if (dureeMap[formule]) dureeField.value = dureeMap[formule];
+  else dureeField.value = '';
 
   var incl = included[formule] || [];
 
@@ -270,7 +285,7 @@ function updateTotal() {
 
   // KM
   var km = parseInt(document.getElementById('opt-km').value) || 0;
-  if (km > 0) { optionsTotal += Math.round(km * 0.5); optionsList.push(km + ' km (' + Math.round(km*0.5) + '€)'); }
+  if (km > 0) { optionsTotal += Math.round(km * 0.5); optionsList.push('Frais km (' + km + ' km au-delà des 20km inclus) → ' + Math.round(km*0.5) + '€'); }
 
   var sousTotal = formulePrice + optionsTotal;
 
@@ -301,11 +316,8 @@ function updateTotal() {
   window._devisData = { formulePrice, formuleLabel, optionsTotal, optionsList, remise, total, acompte, solde, sousTotal };
 }
 
-function genererPDF() {
-  var { jsPDF } = window.jspdf;
-  var doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
-  // Data
+function genererPDF() {
   var nom = document.getElementById('c-nom').value.trim();
   var prenom = document.getElementById('c-prenom').value.trim();
   var tel = document.getElementById('c-tel').value.trim();
@@ -315,7 +327,6 @@ function genererPDF() {
   var date = document.getElementById('p-date').value;
   var event_ = document.getElementById('p-event').value.trim();
   var lieu = document.getElementById('p-lieu').value.trim();
-  var cp = document.getElementById('p-cp').value.trim();
   var duree = document.getElementById('p-duree').value.trim();
   var notes = document.getElementById('p-notes').value.trim();
   var d = window._devisData || {};
@@ -331,238 +342,187 @@ function genererPDF() {
   var expDate = new Date(); expDate.setDate(expDate.getDate() + 30);
   var dateExpiration = expDate.toLocaleDateString('fr-FR');
 
-  var W = 210, margin = 18, y = 0;
-  // Fond page crème chaude
-  doc.setFillColor(245, 240, 232);
-  doc.rect(0, 0, W, 297, 'F');
-  // Bande latérale gauche dorée
-  doc.setFillColor(201, 168, 76);
-  doc.rect(0, 0, 4, 297, 'F');
+  // Durée auto si vide
+  var dureeAuto = {
+    'Pack Duo 360\u00b0 + Miroir (6h)':'6h',
+    '360\u00b0 Starter (3h) + op\u00e9rateur':'3h',
+    '360\u00b0 Premium (5h) + op\u00e9rateur':'5h',
+    'Miroir Classic (3h) + op\u00e9rateur':'3h',
+    'Miroir Premium (5h) + op\u00e9rateur':'5h',
+    'Entreprise Cocktail (3h) + op\u00e9rateur':'3h',
+    'Entreprise Soir\u00e9e (5h) + op\u00e9rateur':'5h',
+    '360\u00b0 Self-service (24h)':'24h'
+  };
+  if (!duree && d.formuleLabel) duree = dureeAuto[d.formuleLabel] || '';
 
-  // ─── FOND HEADER ───
-  doc.setFillColor(46, 95, 114);
-  doc.rect(0, 0, W, 56, 'F');
-  // Dégradé doré sous header
-  doc.setFillColor(201, 168, 76);
-  doc.rect(0, 53, W, 3, 'F');
+  // Inclus dans la formule
+  var inclusMap = {
+    'Pack Duo 360° + Miroir (6h)':['360° + Miroir réunis','2 opérateurs inclus','Tirages illimités','Vidéos illimitées','Galerie en ligne incluse','Installation & désinstallation incluses'],
+    '360° Starter (3h) + opérateur':['Vidéos 360° slow-motion','Galerie en ligne 7j','Opérateur inclus','Installation & désinstallation incluses'],
+    '360° Premium (5h) + opérateur':['Vidéos 360° slow-motion','Watermark personnalisé','Galerie en ligne 30j','Kit accessoires','Opérateur inclus','Installation & désinstallation incluses'],
+    'Miroir Classic (3h) + opérateur':['200 tirages 10x15 cm','QR code après chaque photo','Opérateur inclus','Installation & désinstallation incluses'],
+    'Miroir Premium (5h) + opérateur':['Tirages illimités','Galerie complète soirée','Kit accessoires','Opérateur inclus','Installation & désinstallation incluses'],
+    'Entreprise Cocktail (3h) + opérateur':['360° ou Miroir au choix','Branding inclus','Photos numériques (sans impression)','Opérateur inclus','Installation & désinstallation incluses'],
+    'Entreprise Soirée (5h) + opérateur':['360° ou Miroir au choix','Branding inclus','Tirages inclus si Miroir choisi','Opérateur inclus','Installation & désinstallation incluses'],
+    '360° Self-service (24h)':['Livraison + tutoriel inclus','Caution 400€','Autonome - pas d\'opérateur']
+  };
+  var inclusItems = d.formuleLabel ? (inclusMap[d.formuleLabel] || []) : [];
+  var inclusHtml = '';
+  if (inclusItems.length > 0) {
+    var mid = Math.ceil(inclusItems.length / 2);
+    var col1 = '', col2 = '';
+    for (var ii = 0; ii < inclusItems.length; ii++) {
+      var cell = '<div class="incl-item">✔ ' + inclusItems[ii] + '</div>';
+      if (ii < mid) col1 += cell; else col2 += cell;
+    }
+    inclusHtml = '<div class="incl-box"><div class="incl-title">✔ Inclus dans la formule</div>'
+      + '<div class="incl-cols"><div class="incl-col">' + col1 + '</div>'
+      + '<div class="incl-col">' + col2 + '</div></div></div>';
+  }
 
-  // Ligne or - already done above
-
-  // Titre
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(22);
-  doc.setTextColor(255, 255, 255);
-  doc.text('RS PERFORMAX', margin, 22);
-
-  doc.setFontSize(9);
-  doc.setTextColor(184, 216, 232);
-  doc.text('Photobooth 360° & Borne Miroir — Île-de-France', margin, 30);
-  doc.text('rsperformax@gmail.com  |  06 73 13 55 27  |  SIRET 10185777900017', margin, 36);
-  doc.text('12 Impasse des Bouchets, 91100 Corbeil-Essonnes', margin, 42);
-
-  // Devis label
-  doc.setFontSize(9);
-  doc.setTextColor(201, 168, 76);
-  doc.text('DEVIS N° ' + numDevis, W - margin, 22, { align: 'right' });
-  doc.setTextColor(184, 216, 232);
-  doc.text('Date : ' + dateDevis, W - margin, 30, { align: 'right' });
-  doc.text('Valable jusqu\'au ' + dateExpiration, W - margin, 36, { align: 'right' });
-
-  y = 68;
-
-  // ─── CLIENT ───
-  doc.setFillColor(201, 168, 76);
-  doc.roundedRect(margin, y, W - margin*2, 8, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(13, 27, 42);
-  doc.text('INFORMATIONS CLIENT', margin + 4, y + 5.5);
-  y += 13;
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  doc.setTextColor(20, 20, 20);
-
-  var clientLines = [
-    ['Client', (prenom + ' ' + nom).trim() || '—'],
-    ['Type', typeClient],
-    ['Téléphone', tel || '—'],
-    ['Email', email || '—'],
-  ];
-  if (typeClient === 'Entreprise / Association' && siret) clientLines.push(['SIRET', siret]);
-
-  clientLines.forEach(function(row, idx) {
-    if (idx % 2 === 0) { doc.setFillColor(235, 228, 215); doc.rect(margin, y-5, W-margin*2, 7, 'F'); }
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(74, 124, 139);
-    doc.text(row[0] + ' :', margin + 2, y);
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(13, 27, 42);
-    doc.text(row[1], margin + 30, y);
-    y += 7;
-  });
-
-  y += 4;
-
-  // ─── PRESTATION ───
-  doc.setFillColor(46, 95, 114);
-  doc.roundedRect(margin, y, W - margin*2, 8, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(245, 240, 232);
-  doc.text('DÉTAIL DE LA PRESTATION', margin + 4, y + 5.5);
-  y += 13;
-
-  doc.setFontSize(10);
-  var prestaLines = [
-    ['Date', datePresta],
-    ['Événement', event_ || '—'],
-    ['Lieu', lieu + (cp ? ' (' + cp + ')' : '') || '—'],
-    ['Durée', duree || '—'],
-    ['Formule', d.formuleLabel || '—'],
-  ];
-
-  prestaLines.forEach(function(row) {
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(80, 80, 80);
-    doc.text(row[0] + ' :', margin, y);
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
-    var lines = doc.splitTextToSize(row[1], W - margin*2 - 32);
-    doc.text(lines, margin + 30, y);
-    y += 7;
-  });
-
-  // Options
+  // Options : 2 colonnes libellé / prix
+  var optionsPrestaHtml = '';
+  var optionsFinHtml = '';
   if (d.optionsList && d.optionsList.length > 0) {
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(80, 80, 80);
-    doc.text('Options :', margin, y);
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
-    doc.text(d.optionsList.join(' / '), margin + 30, y);
-    y += 7;
+    d.optionsList.forEach(function(o) {
+      var lib, prix;
+      var m1 = o.match(/^(.+?)\s*\u2192\s*(\d+)\u20ac$/);
+      var m2 = o.match(/^(.+?)\s*\((\d+)\u20ac\)$/);
+      if (m1) { lib = m1[1].trim(); prix = m1[2] + '\u20ac'; }
+      else if (m2) { lib = m2[1].trim(); prix = m2[2] + '\u20ac'; }
+      else { lib = o; prix = ''; }
+      optionsPrestaHtml += '<tr><td class="opt-lbl">\u2022 ' + lib + '</td><td class="opt-prix">' + prix + '</td></tr>';
+      optionsFinHtml += '<tr><td class="lbl">' + lib + '</td><td>' + prix + '</td></tr>';
+    });
   }
 
-  if (notes) {
-    doc.setFont('helvetica', 'bold'); doc.setTextColor(80, 80, 80);
-    doc.text('Notes :', margin, y);
-    doc.setFont('helvetica', 'normal'); doc.setTextColor(20, 20, 20);
-    var noteLines = doc.splitTextToSize(notes, W - margin*2 - 32);
-    doc.text(noteLines, margin + 30, y);
-    y += noteLines.length * 6;
-  }
+  var siretHtml = (typeClient === 'Entreprise / Association' && siret) ? '<tr><td class="lbl">SIRET</td><td>' + siret + '</td></tr>' : '';
+  var remiseHtml = d.remise ? '<tr class="remise-row"><td>Remise</td><td>- ' + d.remise + ' \u20ac</td></tr>' : '';
+  var notesHtml = notes ? '<div class="notes-box"><strong>Notes / Conditions sp\u00e9ciales :</strong><br>' + notes.replace(/\n/g,'<br>') + '</div>' : '';
 
-  y += 6;
+  var css = '<style>'
+    + '@page{size:A4;margin:0}'
+    + '*{margin:0;padding:0;box-sizing:border-box}'
+    + 'body{font-family:Arial,sans-serif;font-size:11px;background:#F5F0E8;color:#0D1B2A}'
+    + '.page{width:210mm;min-height:297mm;position:relative;padding-bottom:20mm}'
+    + '.gold-bar{position:fixed;left:0;top:0;width:5mm;height:100%;background:#C9A84C}'
+    + '.header{background:#2E5F72;color:white;padding:8mm 12mm 6mm 14mm}'
+    + '.header-top{display:flex;justify-content:space-between;align-items:flex-start}'
+    + '.brand{font-size:20px;font-weight:bold;color:white;letter-spacing:2px}'
+    + '.brand-sub{font-size:9px;color:#b8d8e8;margin-top:3px}'
+    + '.devis-ref{text-align:right}'
+    + '.devis-num{font-size:13px;font-weight:bold;color:#C9A84C}'
+    + '.devis-meta{font-size:9px;color:#b8d8e8;margin-top:4px;line-height:1.7}'
+    + '.gold-line{height:3px;background:#C9A84C}'
+    + '.body{padding:3mm 12mm 4mm 15mm}'
+    + '.section-title{font-size:8px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;padding:3px 7px;margin:3mm 0 1.5mm;border-radius:2px}'
+    + '.title-gold{background:#C9A84C;color:#0D1B2A}'
+    + '.title-teal{background:#2E5F72;color:white}'
+    + 'table{width:100%;border-collapse:collapse}'
+    + 'tr:nth-child(even){background:#ebe4d7}'
+    + 'td{padding:2.5px 5px;line-height:1.4;text-align:left}'
+    + 'td.lbl{font-weight:bold;color:#4A7C8B;width:60%;text-align:left}'
+    + 'td:last-child{text-align:right;font-weight:bold;color:#0D1B2A}'
+    + 'td.opt-lbl{color:#0D1B2A;width:65%;text-align:left}'
+    + 'td.opt-prix{text-align:right;font-weight:bold;color:#2E5F72;width:35%}'
+    + '.incl-box{background:#eaf4f0;border:1px solid #4A7C8B;border-radius:3px;padding:6px 10px;margin:1mm 0 2mm;text-align:center}'
+    + '.incl-title{font-weight:bold;color:#2E5F72;font-size:10px;margin-bottom:0;text-align:center;letter-spacing:0.5px;text-transform:uppercase}'
+    + '.incl-cols{display:flex;gap:8px}' + '.incl-col{flex:1}' + '.incl-cols{display:flex;gap:0;margin-top:4px;border-top:1px dashed #4A7C8B;padding-top:4px}.incl-col{flex:1;text-align:center;padding:0 12px}.incl-col:first-child{border-right:1px dashed #4A7C8B}.incl-item{font-size:8.5px;color:#1E3D4A;line-height:1.8;text-align:center}'
+    + '.total-box{background:#0D1B2A;color:white;border:1.5px solid #C9A84C;border-radius:3px;padding:5px 10px;margin:2mm 0 1.5mm;display:flex;justify-content:space-between;align-items:center}'
+    + '.total-label{font-size:12px;font-weight:bold;color:#F5F0E8}'
+    + '.total-amount{font-size:16px;font-weight:bold;color:#C9A84C}'
+    + '.acompte-box{background:#daf0d8;border-radius:3px;padding:3px 10px;display:flex;justify-content:space-between;margin-bottom:1mm}'
+    + '.acompte-box span{font-weight:bold;color:#287828}'
+    + '.solde-box{background:#ebe4d7;border-radius:3px;padding:3px 10px;display:flex;justify-content:space-between;margin-bottom:2mm}'
+    + '.solde-box span:first-child{color:#2E5F72}'
+    + '.solde-box span:last-child{font-weight:bold}.payment-box{background:#fff8e6;border-left:3px solid #C9A84C;border-radius:3px;padding:5px 10px;font-size:9px;font-weight:bold;color:#5a3e00;margin:2mm 0}.payment-box{background:#fff8e6;border-left:3px solid #C9A84C;border-radius:3px;padding:5px 10px;font-size:9px;font-weight:bold;color:#5a3e00;margin-top:2mm}'
+    + '.remise-row td{color:#c0392b;font-weight:bold}'
+    + '.cond-box{background:rgba(46,95,114,0.25);border-radius:3px;padding:5px 8px;color:#1E3D4A;font-size:8.5px;line-height:1.7;margin-bottom:3mm}'
+    + '.cond-box strong{color:#A07830;display:block;margin-bottom:4px;font-size:10px;font-weight:bold;text-decoration:underline}'
+    + '.sign-box{border:1.5px solid #C9A84C;border-radius:3px;background:#F5F0E8;padding:6px 10px;min-height:22mm}'
+    + '.sign-title{font-weight:bold;color:#2E5F72;font-size:10px;margin-bottom:12mm}'
+    + '.sign-line{border-top:1px dashed #aaa;margin:0 10mm}'
+    + '.sign-cgv{font-size:8px;color:#888;font-style:italic;margin-top:4px}'
+    + '.notes-box{background:#e8f4f8;border-left:3px solid #2E5F72;padding:6px 8px;margin:3mm 0;font-size:10px;border-radius:2px}'
+    + '.footer{position:fixed;bottom:0;left:0;right:0;background:#2E5F72;color:#b8d8e8;text-align:center;font-size:8px;padding:4mm 0}'
+    + '@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}'
+    + '</style>';
 
-  // ─── TABLEAU FINANCIER ───
-  doc.setFillColor(201, 168, 76);
-  doc.roundedRect(margin, y, W - margin*2, 8, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.setTextColor(13, 27, 42);
-  doc.text('RÉCAPITULATIF FINANCIER', margin + 4, y + 5.5);
-  y += 14;
+  var html = '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">'
+    + '<title>Devis RS Performax - ' + numDevis + '</title>'
+    + css
+    + '</head><body>'
+    + '<div class="gold-bar"></div>'
+    + '<div class="page">'
+    + '<div class="header"><div class="header-top">'
+    + '<div><div class="brand">RS PERFORMAX</div>'
+    + '<div class="brand-sub">Photobooth 360&deg; &amp; Borne Miroir &mdash; &Icirc;le-de-France<br>'
+    + 'rsperformax@gmail.com &middot; 06 73 13 55 27 &middot; SIRET 10185777900017<br>'
+    + '12 Impasse des Bouchets, 91100 Corbeil-Essonnes</div></div>'
+    + '<div class="devis-ref">'
+    + '<div class="devis-num">DEVIS N&deg; ' + numDevis + '</div>'
+    + '<div class="devis-meta">Date : ' + dateDevis + '<br>Valable jusqu\'au : ' + dateExpiration + '</div>'
+    + '</div></div></div>'
+    + '<div class="gold-line"></div>'
+    + '<div class="body">'
 
-  function finRow(label, value, bold, color) {
-    doc.setFontSize(10);
-    doc.setFillColor(235, 228, 215);
-    doc.rect(margin, y-5, W-margin*2, 8, 'F');
-    if (bold) doc.setFont('helvetica', 'bold'); else doc.setFont('helvetica', 'normal');
-    doc.setTextColor(color ? color[0] : 46, color ? color[1] : 95, color ? color[2] : 114);
-    doc.text(label, margin + 2, y);
-    doc.setTextColor(color ? color[0] : 13, color ? color[1] : 27, color ? color[2] : 42);
-    doc.text(value, W - margin - 2, y, { align: 'right' });
-    y += 8;
-  }
+    + '<div class="section-title title-gold">Informations client</div>'
+    + '<table>'
+    + '<tr><td class="lbl">Client</td><td>' + (prenom + ' ' + nom).trim() + '</td></tr>'
+    + '<tr><td class="lbl">Type</td><td>' + typeClient + '</td></tr>'
+    + siretHtml
+    + '<tr><td class="lbl">T&eacute;l&eacute;phone</td><td>' + (tel || '&mdash;') + '</td></tr>'
+    + '<tr><td class="lbl">Email</td><td>' + (email || '&mdash;') + '</td></tr>'
+    + '</table>'
 
-  finRow('Formule', (d.formulePrice || 0) + ' €', false);
-  if (d.optionsTotal) finRow('Options', '+' + d.optionsTotal + ' €', false);
-  if (d.remise) finRow('Remise', '-' + d.remise + ' €', false, [180, 60, 60]);
+    + '<div class="section-title title-teal">D&eacute;tail de la prestation</div>'
+    + '<table>'
+    + '<tr><td class="lbl">Date</td><td>' + datePresta + '</td></tr>'
+    + '<tr><td class="lbl">Ev&eacute;nement</td><td>' + (event_ || '&mdash;') + '</td></tr>'
+    + '<tr><td class="lbl">Lieu</td><td>' + (lieu || '&mdash;') + '</td></tr>'
+    + '<tr><td class="lbl">Dur&eacute;e</td><td>' + (duree || '&mdash;') + '</td></tr>'
+    + '<tr><td class="lbl">Formule</td><td><strong>' + (d.formuleLabel || '&mdash;') + '</strong></td></tr>'
+    + '</table>'
+    + inclusHtml
 
-  y += 2;
-  doc.setFillColor(13, 27, 42);
-  doc.roundedRect(margin, y - 4, W - margin*2, 12, 1, 1, 'F');
-  doc.setDrawColor(201, 168, 76);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(margin, y - 4, W - margin*2, 12, 1, 1, 'S');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
-  doc.setTextColor(245, 240, 232);
-  doc.text('TOTAL TTC', margin + 4, y + 5);
-  doc.setTextColor(201, 168, 76);
-  doc.text((d.total || 0) + ' €', W - margin - 4, y + 5, { align: 'right' });
-  y += 16;
+    + (optionsPrestaHtml ? '<div class="section-title title-teal">Options choisies</div><table>' + optionsPrestaHtml + '</table>' : '')
 
-  doc.setFontSize(10);
-  doc.setFillColor(218, 240, 216);
-  doc.roundedRect(margin, y-4, W-margin*2, 9, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(40, 120, 40);
-  doc.text('Acompte 30% à régler (réservation)', margin + 2, y + 2);
-  doc.text((d.acompte || 0) + ' €', W - margin - 2, y + 2, { align: 'right' });
-  y += 11;
-  doc.setFillColor(235, 228, 215);
-  doc.roundedRect(margin, y-4, W-margin*2, 9, 1, 1, 'F');
-  doc.setTextColor(46, 95, 114);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Solde à régler (J-7 avant prestation)', margin + 2, y + 2);
-  doc.text((d.solde || 0) + ' €', W - margin - 2, y + 2, { align: 'right' });
-  y += 12;
+    + notesHtml
 
-  // ─── CONDITIONS ───
-  doc.setFillColor(30, 61, 74);
-  doc.roundedRect(margin, y, W - margin*2, 34, 1, 1, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(201, 168, 76);
-  doc.text('CONDITIONS & CGV', margin + 4, y + 6);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(184, 216, 232);
-  var conds = [
-    '• Acompte 30% a la reservation. Solde du 7 jours avant la prestation.',
-    '• Annulation > 30j : acompte rembourse 50%. Entre 30 et 15j : conserve. < 15j : 100% du.',
-    '• Devis valable 30 jours. Reservation = acceptation des CGV completes.',
-    '• TVA non applicable (a verifier selon regime). Sous reserve de disponibilite.',
-    '• CGV completes : rsperformax-dev.github.io/plaquette-rsperformax/cgv.html'
-  ];
-  conds.forEach(function(c, i) { doc.text(c, margin + 4, y + 12 + i * 5); });
-  y += 34;
+    + '<div class="section-title title-gold">Montant du devis</div>'
+    + '<table>'
+    + '<tr><td class="lbl">Formule — ' + (d.formuleLabel ? d.formuleLabel.split('(')[0].trim() : '') + '</td><td>' + (d.formulePrice || 0) + ' \u20ac</td></tr>'
+    + optionsFinHtml
+    + remiseHtml
+    + '</table>'
+    + '<div class="total-box"><span class="total-label">TOTAL TTC</span><span class="total-amount">' + (d.total || 0) + ' \u20ac</span></div>'
+    + '<div class="acompte-box"><span>Acompte 30% &agrave; r&eacute;gler &agrave; la r&eacute;servation</span><span>' + (d.acompte || 0) + ' \u20ac</span></div>'
+    + '<div class="solde-box"><span>Solde &agrave; r&eacute;gler (J-7 avant prestation)</span><span>' + (d.solde || 0) + ' \u20ac</span></div>'
 
-  // ─── SIGNATURE ───
-  y = Math.max(y, 232);
-  // Zone signature client — plus haute et mieux structurée
-  doc.setFillColor(245, 240, 232);
-  doc.roundedRect(margin, y - 4, W - margin*2, 36, 1, 1, 'F');
-  doc.setDrawColor(201, 168, 76);
-  doc.setLineWidth(0.6);
-  doc.roundedRect(margin, y - 4, W - margin*2, 36, 1, 1, 'S');
+    + '<div class="payment-box">💳 Règlement par virement bancaire — IBAN transmis par message à la confirmation</div>'
+    + '<div class="cond-box"><strong>Conditions &amp; CGV</strong>'
+    + '&bull; Acompte 30% &agrave; la r&eacute;servation &mdash; Solde J-7 avant la prestation.<br>'
+    + '&bull; Annulation &gt;30j&nbsp;: acompte rembours&eacute; 50% &mdash; Entre 30 et 15j&nbsp;: conserv&eacute; &mdash; &lt;15j&nbsp;: 100% d&ucirc;.<br>'
+    + '&bull; Devis valable 30 jours. R&eacute;servation = acceptation des CGV compl&egrave;tes.<br>'
+    + '&bull; Sous r&eacute;serve de disponibilit&eacute;.<br>'
+    + '&bull; CGV&nbsp;: rsperformax-dev.github.io/plaquette-rsperformax/cgv.html'
+    + '</div>'
 
-  // Titre en haut
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.setTextColor(46, 95, 114);
-  doc.text('Signature du client (précédée de "Bon pour accord")', margin + 4, y + 3);
+    + '<div class="sign-box">'
+    + '<div class="sign-title">Signature du client (pr&eacute;c&eacute;d&eacute;e de &laquo;&nbsp;Bon pour accord&nbsp;&raquo;)</div>'
+    + '<div class="sign-line"></div>'
+    + '<div class="sign-cgv">En signant, le client accepte les CGV&nbsp;: rsperformax-dev.github.io/plaquette-rsperformax/cgv.html</div>'
+    + '</div>'
 
-  // Ligne pointillée pour signer
-  doc.setDrawColor(180, 180, 180);
-  doc.setLineWidth(0.3);
-  doc.setLineDash([1, 2], 0);
-  doc.line(margin + 4, y + 18, W - margin - 4, y + 18);
-  doc.setLineDash([], 0);
+    + '</div>'
+    + '<div class="footer">RS Performax &middot; SIREN 101 857 779 &middot; rsperformax@gmail.com &middot; 06 73 13 55 27 &middot; Corbeil-Essonnes (91)</div>'
+    + '</div>'
+    + '<script>window.onload=function(){window.print();}<\/script>'
+    + '</body></html>';
 
-  // Mention CGV tout en bas
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(6.5);
-  doc.setTextColor(160, 160, 160);
-  doc.text('En signant, le client accepte les CGV complètes : rsperformax-dev.github.io/plaquette-rsperformax/cgv.html', margin + 4, y + 28);
-
-  // ─── FOOTER ───
-  doc.setFillColor(46, 95, 114);
-  doc.rect(0, 283, W, 14, 'F');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
-  doc.setTextColor(184, 216, 232);
-  doc.text('RS Performax · SIREN 101 857 779 · rsperformax@gmail.com · 06 73 13 55 27 · Corbeil-Essonnes (91)', W/2, 291, { align: 'center' });
-
-  // Save
-  var filename = 'Devis_RSPerformax_' + (nom || 'Client') + '_' + numDevis + '.pdf';
-  doc.save(filename);
+    var win = window.open('', '_blank');
+  win.document.write(html);
+  win.document.close();
 }
 
 
